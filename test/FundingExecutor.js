@@ -78,42 +78,67 @@ describe("FundingExecutor Contract", function () {
         FundingExecutor = await ethers.getContractFactory("FundingExecutor");
     });
 
-    describe.only("Deployment", function () {
+    describe("Deployment", function () {
         it("Should set constants", async function () {
             FundingExecutorDeployed = await FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
                 GeneralTokenVesting,
                 SarcoDao
             );
-            expect(await FundingExecutorDeployed.totalGroups()).to.equal(1);
             expect(await FundingExecutorDeployed.usdcToSarcoRates(0)).to.equal(ethers.utils.parseUnits("1.0", 18));
-            expect(await FundingExecutorDeployed.sarcoAllocationsTotal()).to.equal(ethers.utils.parseUnits("360.0", 18));
             expect(await FundingExecutorDeployed.vestingEndDelay()).to.equal(100);
             expect(await FundingExecutorDeployed.offerExpirationDelay()).to.equal(1000);
-            expect(await (await FundingExecutorDeployed.Funder(USDCTokenHolder1._address)).sarcoAllocation).to.equal(ethers.utils.parseUnits("110.0", 18));
-            expect(await (await FundingExecutorDeployed.Funder(USDCTokenHolder2._address)).sarcoAllocation).to.equal(ethers.utils.parseUnits("120.0", 18));
-            expect(await (await FundingExecutorDeployed.Funder(USDCTokenHolder3._address)).sarcoAllocation).to.equal(ethers.utils.parseUnits("130.0", 18)); 
-            expect(await (await FundingExecutorDeployed.Funder(USDCTokenHolder1._address)).usdcToSarcoRateGroup).to.equal(0);
-            expect(await (await FundingExecutorDeployed.Funder(USDCTokenHolder2._address)).usdcToSarcoRateGroup).to.equal(0);
-            expect(await (await FundingExecutorDeployed.Funder(USDCTokenHolder3._address)).usdcToSarcoRateGroup).to.equal(0); 
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder1._address)).sarcoAllocation).to.equal(ethers.utils.parseUnits("110.0", 18));
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder2._address)).sarcoAllocation).to.equal(ethers.utils.parseUnits("120.0", 18));
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder3._address)).sarcoAllocation).to.equal(ethers.utils.parseUnits("130.0", 18));
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder1._address)).usdcToSarcoRateIndex).to.equal(0);
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder2._address)).usdcToSarcoRateIndex).to.equal(1);
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder3._address)).usdcToSarcoRateIndex).to.equal(0);
         });
 
-        it("Should revert if usdc_to_sarco_rate rate is 0", async function () {
-        await expect(FundingExecutor.deploy(
-                [0], // usdc_to_sarco_rate
+        it("Should set constants w/ multiple rates", async function () {
+            FundingExecutorDeployed = await FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18), ethers.utils.parseUnits("3.22", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 2, 1],
+                ethers.utils.parseUnits("360.0", 18),
+                USDCToken,
+                SarcoToken,
+                GeneralTokenVesting,
+                SarcoDao
+            );
+            expect(await FundingExecutorDeployed.usdcToSarcoRates(0)).to.equal(ethers.utils.parseUnits("1.0", 18));
+            expect(await FundingExecutorDeployed.usdcToSarcoRates(1)).to.equal(ethers.utils.parseUnits("1.5", 18));
+            expect(await FundingExecutorDeployed.usdcToSarcoRates(2)).to.equal(ethers.utils.parseUnits("3.22", 18));
+            expect(await FundingExecutorDeployed.vestingEndDelay()).to.equal(100);
+            expect(await FundingExecutorDeployed.offerExpirationDelay()).to.equal(1000);
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder1._address)).sarcoAllocation).to.equal(ethers.utils.parseUnits("110.0", 18));
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder2._address)).sarcoAllocation).to.equal(ethers.utils.parseUnits("120.0", 18));
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder3._address)).sarcoAllocation).to.equal(ethers.utils.parseUnits("130.0", 18));
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder1._address)).usdcToSarcoRateIndex).to.equal(0);
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder2._address)).usdcToSarcoRateIndex).to.equal(2);
+            expect(await (await FundingExecutorDeployed.funders(USDCTokenHolder3._address)).usdcToSarcoRateIndex).to.equal(1);
+        });
+
+        it("Should revert if usdc_to_sarco_rate rate is 0", async function () {
+            await expect(FundingExecutor.deploy(
+                [0, ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
+                100, // vesting duration
+                1000,// offer expiration delay
+                [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
+                [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -124,12 +149,12 @@ describe("FundingExecutor Contract", function () {
 
         it("Should revert if vesting_end_delay is 0", async function () {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 0, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 0, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -140,12 +165,12 @@ describe("FundingExecutor Contract", function () {
 
         it("Should revert if offer_expiration_delay is 0", async function () {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 0,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -156,12 +181,12 @@ describe("FundingExecutor Contract", function () {
 
         it("Should revert if the length of purchaser array does not equal allocations array", async function () {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18)],
-                [0,0,0],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -172,12 +197,12 @@ describe("FundingExecutor Contract", function () {
 
         it("Should revert if the length of allocations array does not equal purchasers", async function () {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 0, 1],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -188,12 +213,12 @@ describe("FundingExecutor Contract", function () {
 
         it("Should revert if the length of traunch array does not equal purchasers", async function () {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0],
+                [0, 1],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -204,12 +229,12 @@ describe("FundingExecutor Contract", function () {
 
         it("Should revert if the USDCToken address is address(0)", async function () {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 ethers.constants.AddressZero,
                 SarcoToken,
@@ -220,12 +245,12 @@ describe("FundingExecutor Contract", function () {
 
         it("Should revert if the SarcoToken address is address(0)", async function () {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 ethers.constants.AddressZero,
@@ -236,12 +261,12 @@ describe("FundingExecutor Contract", function () {
 
         it("Should revert if the GeneralTokenVesting address is address(0)", async function () {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -252,12 +277,12 @@ describe("FundingExecutor Contract", function () {
 
         it("Should revert if the SarcoDao is address(0)", async function () {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -266,14 +291,14 @@ describe("FundingExecutor Contract", function () {
             )).to.be.revertedWith("FundingExecutor: _sarcoDao cannot be 0 address");
         });
 
-        it.only("Should revert if a purchaser is zero address", async () => {
+        it("Should revert if a purchaser is zero address", async () => {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [ethers.constants.AddressZero, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -282,14 +307,14 @@ describe("FundingExecutor Contract", function () {
             )).to.be.revertedWith("FundingExecutor: Funder cannot be the ZERO address");
         });
 
-        it.only("Should revert if a purchaser allocation is zero", async () => {
+        it("Should revert if a purchaser allocation is zero", async () => {
             await expect(FundingExecutor.deploy(
-                [ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [0, ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
-                [0,0,0],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -299,78 +324,86 @@ describe("FundingExecutor Contract", function () {
         });
 
         it("Should revert if purchaser array includes a duplicate", async () => {
-            await expect(PurchaseExecutor.deploy(
-                ethers.utils.parseUnits("1.0", 18), // usdc_to_sarco_rate
+            await expect(FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
-                [USDCTokenHolder2._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
-                [ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder1._address],
+                [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
                 GeneralTokenVesting,
-                SarcoDao))
-                .to.be.revertedWith("PurchaseExecutor: Allocation has already been set");
+                SarcoDao
+            )).to.be.revertedWith("FundingExecutor: Allocation has already been set");
         });
 
         it("Should revert if _sarco_allocations_total does not equal sum of allocations array", async () => {
-            await expect(PurchaseExecutor.deploy(
-                ethers.utils.parseUnits("1.0", 18), // usdc_to_sarco_rate
+            await expect(FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [0, 1, 0],
                 ethers.utils.parseUnits("350.0", 18),
                 USDCToken,
                 SarcoToken,
                 GeneralTokenVesting,
-                SarcoDao))
-                .to.be.revertedWith("PurchaseExecutor: Allocations_total does not equal the sum of passed allocations");
+                SarcoDao
+            )).to.be.revertedWith("FundingExecutor: AllocationsTotal does not equal the sum of passed allocations");
+
         });
 
         it("Should approve SarcoDao total USDC", async () => {
-            PurchaseExecutorDeployed = await PurchaseExecutor.deploy(
-                ethers.utils.parseUnits("1.0", 18), // usdc_to_sarco_rate
+            FundingExecutorDeployed = await FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [1, 0, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
                 GeneralTokenVesting,
-                SarcoDao);
+                SarcoDao
+            );
 
-            expect(await USDCTokenContract.connect(USDCTokenHolder1).allowance(PurchaseExecutorDeployed.address, SarcoDao))
-                .to.equal(ethers.utils.parseUnits("360.0", 6));
+            expect(await USDCTokenContract.connect(USDCTokenHolder1).allowance(FundingExecutorDeployed.address, SarcoDao))
+                .to.gte(ethers.utils.parseUnits("360.0", 6));
         });
 
         it("Should approve SarcoDao total SARCO", async () => {
-            PurchaseExecutorDeployed = await PurchaseExecutor.deploy(
-                ethers.utils.parseUnits("1.0", 18), // usdc_to_sarco_rate
+            FundingExecutorDeployed = await FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.5", 18), ethers.utils.parseUnits("1.0", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [0, 0, 1],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
                 GeneralTokenVesting,
-                SarcoDao);
+                SarcoDao
+            );
 
-            expect(await SarcoTokenContract.connect(USDCTokenHolder1).allowance(PurchaseExecutorDeployed.address, SarcoDao))
-                .to.equal(ethers.utils.parseUnits("360.0", 18));
+            expect(await SarcoTokenContract.connect(USDCTokenHolder1).allowance(FundingExecutorDeployed.address, SarcoDao))
+                .to.gte(ethers.utils.parseUnits("360.0", 18));
         });
     });
 
     describe("Start", function () {
         beforeEach(async function () {
-            PurchaseExecutorDeployed = await PurchaseExecutor.deploy(
-                ethers.utils.parseUnits("1.0", 18), // usdc_to_sarco_rate
+            FundingExecutorDeployed = await FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -380,110 +413,111 @@ describe("FundingExecutor Contract", function () {
         });
 
         it("Should revert if contract does not own allocated funds", async function () {
-            await expect(PurchaseExecutorDeployed.start())
-                .to.be.revertedWith("PurchaseExecutor: Insufficient Sarco contract balance to start offer");
+            await expect(FundingExecutorDeployed.start())
+                .to.be.revertedWith("FundingExecutor: Insufficient Sarco contract balance to start offer");
         });
 
         it("Should emit OfferStarted event", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer
-            await expect(PurchaseExecutorDeployed.start())
-                .to.emit(PurchaseExecutorDeployed, "OfferStarted");
+            await expect(FundingExecutorDeployed.start())
+                .to.emit(FundingExecutorDeployed, "OfferStarted");
         });
 
         it("Should emit OfferStarted event if offer the offer has not started before the first purchase executed", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Return USDCCost to purchase Sarco
             let SarcoAllocation;
             let USDCCost;
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
 
             // Approve PurchaseExecutor Contract the USDCCost amount
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
 
             // Execute Purchase - Listen for OfferStarted event
-            await expect(PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address))
-                .to.emit(PurchaseExecutorDeployed, "OfferStarted");
+            await expect(FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address))
+                .to.emit(FundingExecutorDeployed, "OfferStarted");
         });
 
         it("Should be callable from any EOA", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer (Stranger)
-            await expect(PurchaseExecutorDeployed.connect(stranger).start())
-                .to.emit(PurchaseExecutorDeployed, "OfferStarted");
+            await expect(FundingExecutorDeployed.connect(stranger).start())
+                .to.emit(FundingExecutorDeployed, "OfferStarted");
         });
 
         it("offer_started should return false before start", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
-            expect(await PurchaseExecutorDeployed.offer_started()).to.be.equal(false);
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            expect(await FundingExecutorDeployed.offerStarted()).to.be.equal(false);
         });
 
         it("offer_started should return true", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer
-            await PurchaseExecutorDeployed.start();
-            expect(await PurchaseExecutorDeployed.offer_started()).to.be.equal(true);
+            await FundingExecutorDeployed.start();
+            expect(await FundingExecutorDeployed.offerStarted()).to.be.equal(true);
         });
 
         it("offer_expired should return false before offer expires", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer
-            await PurchaseExecutorDeployed.start();
+            await FundingExecutorDeployed.start();
 
             // Increase Time to 1 second before the offer ends
             await network.provider.send("evm_increaseTime", [800]);
             await network.provider.send("evm_mine");
-            expect(await PurchaseExecutorDeployed.offer_expired()).to.be.equal(false);
+            expect(await FundingExecutorDeployed.offerExpired()).to.be.equal(false);
         });
 
         it("offer_expired should return true", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer
-            await PurchaseExecutorDeployed.start();
+            await FundingExecutorDeployed.start();
 
 
             // Increase Time to past offer ends
             await network.provider.send("evm_increaseTime", [1000]);
             await network.provider.send("evm_mine");
-            expect(await PurchaseExecutorDeployed.offer_expired()).to.be.equal(true);
+            expect(await FundingExecutorDeployed.offerExpired()).to.be.equal(true);
         });
 
         it("Should revert if start is called twice", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer
-            await PurchaseExecutorDeployed.start();
+            await FundingExecutorDeployed.start();
 
             // Try to start offer twice
-            await expect(PurchaseExecutorDeployed.start())
-                .to.be.revertedWith("PurchaseExecutor: Offer has already started");
+            await expect(FundingExecutorDeployed.start())
+                .to.be.revertedWith("FundingExecutor: Offer has already started");
         });
     });
 
     describe("Execute Purchase", function () {
         beforeEach(async function () {
             // Deploy contract
-            PurchaseExecutorDeployed = await PurchaseExecutor.deploy(
-                ethers.utils.parseUnits("1.0", 18), // usdc_to_sarco_rate
+            FundingExecutorDeployed = await FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
-                [USDCTokenHolder1._address, USDCTokenHolder2._address],
-                [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18)],
-                ethers.utils.parseUnits("230.0", 18),
+                [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
+                [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [0, 1, 0],
+                ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
                 GeneralTokenVesting,
@@ -491,10 +525,10 @@ describe("FundingExecutor Contract", function () {
             );
 
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("230.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer
-            await PurchaseExecutorDeployed.start();
+            await FundingExecutorDeployed.start();
         });
 
         it("Should revert since offer has expired", async function () {
@@ -503,17 +537,17 @@ describe("FundingExecutor Contract", function () {
             await network.provider.send("evm_mine");
 
             // Try to execute a purchase
-            await expect(PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address))
-                .to.be.revertedWith("PurchaseExecutor: Purchases cannot be made after the offer has expired");
+            await expect(FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address))
+                .to.be.revertedWith("FundingExecutor: Purchases cannot be made after the offer has expired");
         });
 
         it("Should revert since the Purchaser does not have an allocation", async function () {
-            await expect(PurchaseExecutorDeployed.connect(owner).execute_purchase(owner.address))
-                .to.be.revertedWith("PurchaseExecutor: sender does not have a SARCO allocation");
+            await expect(FundingExecutorDeployed.connect(owner).executePurchase(owner.address))
+                .to.be.revertedWith("FundingExecutor: sender does not have a SARCO allocation");
         });
 
         it("Should revert since the Purchaser did not approve PurchaseExecutor for purchase", async function () {
-            await expect(PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address))
+            await expect(FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address))
                 .to.be.revertedWith("ERC20: transfer amount exceeds allowance");
         });
 
@@ -521,39 +555,25 @@ describe("FundingExecutor Contract", function () {
             // Return USDCCost to purchase Sarco 
             let SarcoAllocation;
             let USDCCost;
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
 
             // Approve PurchaseExecutor Contract the USDCCost amount
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
 
             // Execute Purchase
-            await expect(PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address))
-                .to.emit(PurchaseExecutorDeployed, "PurchaseExecuted");
-        });
-
-        it("Should not be able to purchase on the behalf of another user", async function () {
-            // Return USDCCost to purchase Sarco 
-            let SarcoAllocation;
-            let USDCCost;
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
-
-            // Approve PurchaseExecutor Contract the USDCCost amount
-            await USDCTokenContract.connect(USDCTokenHolder3).approve(PurchaseExecutorDeployed.address, USDCCost);
-
-            // Execute Purchase onBehalf of a whitelisted Purchaser
-            await expect(PurchaseExecutorDeployed.connect(USDCTokenHolder3).execute_purchase(USDCTokenHolder1._address))
-                .to.be.revertedWith("PurchaseExecutor: sender does not have a SARCO allocation");
+            await expect(FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address))
+                .to.emit(FundingExecutorDeployed, "FundingExecuted");
         });
 
         it("should allow purchaser to assign SARCO to another address", async function () {
             let SarcoAllocation, USDCCost
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
 
             // Approve PurchaseExecutor Contract the USDCCost amount
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
 
             // Execute Purchase on Behalf of a whitelisted Purchaser, assigning SARCO to another address
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(stranger.address);
+            await FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(stranger.address);
 
             // verify that the SARCO is in token vesting, on behalf of third party address
             expect(await GeneralTokenVestingContract.getTotalTokens(SarcoToken, stranger.address)).to.eq(SarcoAllocation);
@@ -563,16 +583,16 @@ describe("FundingExecutor Contract", function () {
             // Return USDCCost to purchase Sarco 
             let SarcoAllocation;
             let USDCCost;
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
 
             // Purchase 1
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
+            await FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address);
 
             // Purchase 2
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await expect(PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address))
-                .to.be.revertedWith("PurchaseExecutor: sender does not have a SARCO allocation");
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
+            await expect(FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address))
+                .to.be.revertedWith("FundingExecutor: sender does not have a SARCO allocation");
         });
 
         it("Should update Sarco DAO USDC Balance", async function () {
@@ -582,13 +602,13 @@ describe("FundingExecutor Contract", function () {
             // Return USDCCost to purchase Sarco 
             let SarcoAllocation;
             let USDCCost;
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
 
             // Approve PurchaseExecutor Contract the USDCCost amount
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
 
             // Execute Purchase
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address);
+            await FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address);
 
             // Check GeneralTokenVesting Balance after a purchase
             afterTransfer = await USDCTokenContract.balanceOf(SarcoVault);
@@ -604,13 +624,13 @@ describe("FundingExecutor Contract", function () {
             // Return USDCCost to purchase Sarco 
             let SarcoAllocation;
             let USDCCost;
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
 
             // Approve PurchaseExecutor Contract the USDCCost amount
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
 
             // Execute Purchase
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address);
+            await FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address);
 
             // Check GeneralTokenVesting Balance after a purchase
             afterTransfer = await SarcoTokenContract.balanceOf(GeneralTokenVesting);
@@ -624,13 +644,13 @@ describe("FundingExecutor Contract", function () {
             // Return USDCCost to purchase Sarco 
             let SarcoAllocation;
             let USDCCost;
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
 
             // Approve PurchaseExecutor Contract the USDCCost amount
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
 
             // Execute Purchase
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address);
+            await FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address);
 
             // Check whitelisted purchaser's vested tokens
             expect(await GeneralTokenVestingContract.getTotalTokens(SarcoToken, USDCTokenHolder1._address))
@@ -639,22 +659,23 @@ describe("FundingExecutor Contract", function () {
             // Check whitelisted purchaser vesting duration
             expect(await GeneralTokenVestingContract.getDuration(SarcoToken, USDCTokenHolder1._address))
                 .to.be.equal(100);
-
         });
     });
 
     describe("Verify usdc_to_sarco conversion rates", function () {
-        const deployAndGetCost = async (numberOfSarco, usdcPricePerSarco) => {
-            const rate = calculateUsdcSarcoRate(usdcPricePerSarco)
-            
-            // Deploy Contract
-            PurchaseExecutorDeployed = await PurchaseExecutor.deploy(
-                rate, // usdc_to_sarco_rate
+        const deployAndGetCost = async (numberOfSarco1, numberOfSarco2, usdcPricePerSarco1, usdcPricePerSarco2) => {
+            const rate1 = calculateUsdcSarcoRate(usdcPricePerSarco1)
+            const rate2 = calculateUsdcSarcoRate(usdcPricePerSarco2)
+            const totalSarco = numberOfSarco1.add(numberOfSarco2);
+
+            FundingExecutorDeployed = await FundingExecutor.deploy(
+                [rate1, rate2], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
-                [USDCTokenHolder1._address],
-                [numberOfSarco],
-                numberOfSarco,
+                [USDCTokenHolder1._address, USDCTokenHolder2._address],
+                [numberOfSarco1, numberOfSarco2],
+                [0, 1],
+                totalSarco,
                 USDCToken,
                 SarcoToken,
                 GeneralTokenVesting,
@@ -662,85 +683,85 @@ describe("FundingExecutor Contract", function () {
             );
 
             // Return USDCCost to purchase Sarco
-            let SarcoAllocation;
-            let USDCCost;
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
-            return USDCCost;
+            let SarcoAllocation1;
+            let SarcoAllocation2;
+            let USDCCost1;
+            let USDCCost2;
+            [SarcoAllocation1, USDCCost1] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
+            [SarcoAllocation2, USDCCost2] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder2._address);
+            return [USDCCost1, USDCCost2];
         }
 
-        it("Should verify purchasing 12,345 SARCO at a rate of $1 per SARCO costs $12,345", async function () {
-            const numberOfSarco = ethers.utils.parseUnits("12345", 18);
-            const usdcPricePerSarco = ethers.utils.parseUnits("1", 6);
-            const expectedCost = ethers.utils.parseUnits("12345", 6);
-            const contractCost = await deployAndGetCost(numberOfSarco, usdcPricePerSarco);
+        it("Should verify purchasing 12,345 SARCO at a rate of $1 and $2 per SARCO costs $12,345 and $24,690", async function () {
+            const numberOfSarco1 = ethers.utils.parseUnits("12345", 18);
+            const usdcPricePerSarco1 = ethers.utils.parseUnits("1", 6);
+            const expectedCost1 = ethers.utils.parseUnits("12345", 6);
 
-            expect(contractCost).to.equal(expectedCost);
+            const numberOfSarco2 = ethers.utils.parseUnits("12345", 18);
+            const usdcPricePerSarco2 = ethers.utils.parseUnits("2", 6);
+            const expectedCost2 = ethers.utils.parseUnits("24690", 6);
+            const [contractCost1, contractCost2] = await deployAndGetCost(numberOfSarco1, numberOfSarco2, usdcPricePerSarco1, usdcPricePerSarco2);
+
+            expect(contractCost1).to.equal(expectedCost1);
+            expect(contractCost2).to.equal(expectedCost2);
         });
 
-        it("Should verify purchasing 110,000 SARCO at a rate of 20 cents per SARCO costs $22,000", async function () {
-            const numberOfSarco = ethers.utils.parseUnits("110000", 18);
-            const usdcPricePerSarco = ethers.utils.parseUnits("0.2", 6);
-            const expectedCost = ethers.utils.parseUnits("22000", 6);
-            const contractCost = await deployAndGetCost(numberOfSarco, usdcPricePerSarco);
+        it("Should verify purchasing 110,000 SARCO @ 20 cents = costs $22,000 / 20,000 SARCO @ 25 cents = costs $5,000", async function () {
+            const numberOfSarco1 = ethers.utils.parseUnits("110000", 18);
+            const usdcPricePerSarco1 = ethers.utils.parseUnits(".2", 6);
+            const expectedCost1 = ethers.utils.parseUnits("22000", 6);
 
-            expect(contractCost).to.equal(expectedCost);
+            const numberOfSarco2 = ethers.utils.parseUnits("20000", 18);
+            const usdcPricePerSarco2 = ethers.utils.parseUnits("0.25", 6);
+            const expectedCost2 = ethers.utils.parseUnits("5000", 6);
+
+            const [contractCost1, contractCost2] = await deployAndGetCost(numberOfSarco1, numberOfSarco2, usdcPricePerSarco1, usdcPricePerSarco2);
+
+            expect(contractCost1).to.equal(expectedCost1);
+            expect(contractCost2).to.equal(expectedCost2);
         });
 
-        it("Should verify purchasing 20,000 SARCO at a rate of 25 cents per SARCO costs $5,000", async function () {
-            const numberOfSarco = ethers.utils.parseUnits("20000", 18);
-            const usdcPricePerSarco = ethers.utils.parseUnits("0.25", 6);
-            const expectedCost = ethers.utils.parseUnits("5000", 6);
-            const contractCost = await deployAndGetCost(numberOfSarco, usdcPricePerSarco);
+        it("Should verify 1,500 @ 66 cents = $990 / 121 @ 92 cents = $111.32", async function () {
+            const numberOfSarco1 = ethers.utils.parseUnits("1500", 18);
+            const usdcPricePerSarco1 = ethers.utils.parseUnits("0.66", 6);
+            const expectedCost1 = ethers.utils.parseUnits("990", 6);
 
-            expect(contractCost).to.equal(expectedCost);
+            const numberOfSarco2 = ethers.utils.parseUnits("121", 18);
+            const usdcPricePerSarco2 = ethers.utils.parseUnits("0.92", 6);
+            const expectedCost2 = ethers.utils.parseUnits("111.32", 6);
+
+            const [contractCost1, contractCost2] = await deployAndGetCost(numberOfSarco1, numberOfSarco2, usdcPricePerSarco1, usdcPricePerSarco2);
+
+            expect(contractCost1).to.equal(expectedCost1);
+            expect(contractCost2).to.equal(expectedCost2);
         });
 
-        it("Should verify purchasing 1,500 SARCO at a rate of 66 cents per SARCO costs $990", async function () {
-            const numberOfSarco = ethers.utils.parseUnits("1500", 18);
-            const usdcPricePerSarco = ethers.utils.parseUnits("0.66", 6);
-            const expectedCost = ethers.utils.parseUnits("990", 6);
-            const contractCost = await deployAndGetCost(numberOfSarco, usdcPricePerSarco);
+        it("Should verify 25 SARCO @ $1.50 = $37.50 / 1000 SARCO @ $4.20 = $4200", async function () {
+            const numberOfSarco1 = ethers.utils.parseUnits("25", 18);
+            const usdcPricePerSarco1 = ethers.utils.parseUnits("1.50", 6);
+            const expectedCost1 = ethers.utils.parseUnits("37.5", 6);
 
-            expect(contractCost).to.equal(expectedCost);
-        });
+            const numberOfSarco2 = ethers.utils.parseUnits("1000", 18);
+            const usdcPricePerSarco2 = ethers.utils.parseUnits("4.20", 6);
+            const expectedCost2 = ethers.utils.parseUnits("4200", 6);
 
-        it("Should verify purchasing 121 SARCO at a rate of 92 cents per SARCO costs $111.32", async function () {
-            const numberOfSarco = ethers.utils.parseUnits("121", 18);
-            const usdcPricePerSarco = ethers.utils.parseUnits("0.92", 6);
-            const expectedCost = ethers.utils.parseUnits("111.32", 6);
-            const contractCost = await deployAndGetCost(numberOfSarco, usdcPricePerSarco);
+            const [contractCost1, contractCost2] = await deployAndGetCost(numberOfSarco1, numberOfSarco2, usdcPricePerSarco1, usdcPricePerSarco2);
 
-            expect(contractCost).to.equal(expectedCost);
-        });
-
-        it("Should verify purchasing 25 SARCO at a rate of $1.50 per SARCO costs $37.50", async function () {
-            const numberOfSarco = ethers.utils.parseUnits("25", 18);
-            const usdcPricePerSarco = ethers.utils.parseUnits("1.50", 6);
-            const expectedCost = ethers.utils.parseUnits("37.5", 6);
-            const contractCost = await deployAndGetCost(numberOfSarco, usdcPricePerSarco);
-
-            expect(contractCost).to.equal(expectedCost);
-        });
-
-        it("Should verify purchasing 1000 SARCO at a rate of $4.20 per SARCO costs $4200", async function () {
-            const numberOfSarco = ethers.utils.parseUnits("1000", 18);
-            const usdcPricePerSarco = ethers.utils.parseUnits("4.20", 6);
-            const expectedCost = ethers.utils.parseUnits("4200", 6);
-            const contractCost = await deployAndGetCost(numberOfSarco, usdcPricePerSarco);
-
-            expect(contractCost).to.equal(expectedCost);
+            expect(contractCost1).to.equal(expectedCost1);
+            expect(contractCost2).to.equal(expectedCost2);
         });
     });
 
     describe("Recover Unused Tokens", function () {
         beforeEach(async function () {
             // Deploy Contract
-            PurchaseExecutorDeployed = await PurchaseExecutor.deploy(
-                ethers.utils.parseUnits("1.0", 18), // usdc_to_sarco_rate
+            FundingExecutorDeployed = await FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -750,79 +771,79 @@ describe("FundingExecutor Contract", function () {
         });
 
         it("Should revert - offer not started", async function () {
-            await expect(PurchaseExecutorDeployed.recover_unsold_tokens())
-                .to.be.revertedWith("PurchaseExecutor: Purchase offer has not yet started");
+            await expect(FundingExecutorDeployed.recoverUnsoldTokens())
+                .to.be.revertedWith("FundingExecutor: Purchase offer has not yet started");
         });
 
         it("Should revert - offer not expired", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer
-            await PurchaseExecutorDeployed.start();
+            await FundingExecutorDeployed.start();
 
             // Try to recover unsold tokens
-            await expect(PurchaseExecutorDeployed.recover_unsold_tokens())
-                .to.be.revertedWith("PurchaseExecutor: Purchase offer has not yet expired");
+            await expect(FundingExecutorDeployed.recoverUnsoldTokens())
+                .to.be.revertedWith("FundingExecutor: Purchase offer has not yet expired");
         });
 
         it("Should revert if there are no tokens to recover", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer
-            await PurchaseExecutorDeployed.start();
+            await FundingExecutorDeployed.start();
 
             // Return USDCCost to purchase Sarco
             let SarcoAllocation;
             let USDCCost;
 
             // Purchaser 1
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
+            await FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address);
 
             // Purchaser 2
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder2._address);
-            await USDCTokenContract.connect(USDCTokenHolder2).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder2).execute_purchase(USDCTokenHolder2._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder2._address);
+            await USDCTokenContract.connect(USDCTokenHolder2).approve(FundingExecutorDeployed.address, USDCCost);
+            await FundingExecutorDeployed.connect(USDCTokenHolder2).executePurchase(USDCTokenHolder2._address);
 
             // Purchaser 3
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder3._address);
-            await USDCTokenContract.connect(USDCTokenHolder3).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder3).execute_purchase(USDCTokenHolder3._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder3._address);
+            await USDCTokenContract.connect(USDCTokenHolder3).approve(FundingExecutorDeployed.address, USDCCost);
+            await FundingExecutorDeployed.connect(USDCTokenHolder3).executePurchase(USDCTokenHolder3._address);
 
             // Increase Time to past offer expired
             await network.provider.send("evm_increaseTime", [1000]);
             await network.provider.send("evm_mine");
 
             // Try to recover unsold tokens
-            await expect(PurchaseExecutorDeployed.recover_unsold_tokens())
-                .to.be.revertedWith("PurchaseExecutor: There are no Sarco tokens to recover");
+            await expect(FundingExecutorDeployed.recoverUnsoldTokens())
+                .to.be.revertedWith("FundingExecutor: There are no Sarco tokens to recover");
         });
 
         it("Should emit TokensRecovered event", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer
-            await PurchaseExecutorDeployed.start();
+            await FundingExecutorDeployed.start();
 
             // Increase Time to past offer expired
             await network.provider.send("evm_increaseTime", [1000]);
             await network.provider.send("evm_mine");
 
             // Recover unsold tokens
-            await expect(PurchaseExecutorDeployed.recover_unsold_tokens())
-                .to.emit(PurchaseExecutorDeployed, "TokensRecovered");
+            await expect(FundingExecutorDeployed.recoverUnsoldTokens())
+                .to.emit(FundingExecutorDeployed, "TokensRecovered");
         });
 
         it("Should update DAO Balance", async function () {
             // Transfer Sarco to PurchaseExecutor Contract
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
 
             // Start Offer
-            await PurchaseExecutorDeployed.start();
+            await FundingExecutorDeployed.start();
 
             // Increase Time to past offer expired
             await network.provider.send("evm_increaseTime", [1000]);
@@ -830,13 +851,13 @@ describe("FundingExecutor Contract", function () {
 
             // Recover unsold tokens
             beforeTransfer = await SarcoTokenContract.balanceOf(SarcoVault);
-            await PurchaseExecutorDeployed.recover_unsold_tokens();
+            await FundingExecutorDeployed.recoverUnsoldTokens();
             afterTransfer = await SarcoTokenContract.balanceOf(SarcoVault);
 
             // Check Purchase Executor Balance
             expect(afterTransfer.sub(beforeTransfer))
                 .to.be.equal(ethers.utils.parseUnits("360.0", 18));
-            expect(await SarcoTokenContract.connect(SarcoTokenHolder).balanceOf(PurchaseExecutorDeployed.address))
+            expect(await SarcoTokenContract.connect(SarcoTokenHolder).balanceOf(FundingExecutorDeployed.address))
                 .to.equal(0);
         });
     });
@@ -844,12 +865,13 @@ describe("FundingExecutor Contract", function () {
     describe("Integration Tests", function () {
         it("Should Deploy - Start - Execute Purchase - Recover Funds", async function () {
             // Deployed
-            PurchaseExecutorDeployed = await PurchaseExecutor.deploy(
-                ethers.utils.parseUnits("1.0", 18), // usdc_to_sarco_rate
+            FundingExecutorDeployed = await FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -858,37 +880,38 @@ describe("FundingExecutor Contract", function () {
             );
 
             // Start Offer
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
-            await expect(PurchaseExecutorDeployed.start())
-                .to.emit(PurchaseExecutorDeployed, "OfferStarted");
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await expect(FundingExecutorDeployed.start())
+                .to.emit(FundingExecutorDeployed, "OfferStarted");
 
             // Purchase Executed
             let SarcoAllocation;
             let USDCCost;
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
 
             // Execute Purchase
-            await expect(PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address))
-                .to.emit(PurchaseExecutorDeployed, "PurchaseExecuted");
+            await expect(FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address))
+                .to.emit(FundingExecutorDeployed, "FundingExecuted");
 
             // Increase Time to past offer expired
             await network.provider.send("evm_increaseTime", [1000]);
             await network.provider.send("evm_mine");
 
             // Recover Unused Funds
-            await expect(PurchaseExecutorDeployed.recover_unsold_tokens())
-                .to.emit(PurchaseExecutorDeployed, "TokensRecovered");
+            await expect(FundingExecutorDeployed.recoverUnsoldTokens())
+                .to.emit(FundingExecutorDeployed, "TokensRecovered");
         });
 
         it("Should Deploy - Start - Execute (3)Purchase - Revert Recover Funds", async function () {
             // Deployed
-            PurchaseExecutorDeployed = await PurchaseExecutor.deploy(
-                ethers.utils.parseUnits("1.0", 18), // usdc_to_sarco_rate
+            FundingExecutorDeployed = await FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -897,46 +920,47 @@ describe("FundingExecutor Contract", function () {
             );
 
             // Offer Started
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
-            await expect(PurchaseExecutorDeployed.start())
-                .to.emit(PurchaseExecutorDeployed, "OfferStarted");
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await expect(FundingExecutorDeployed.start())
+                .to.emit(FundingExecutorDeployed, "OfferStarted");
 
             // Return USDCCost to purchase Sarco
             let SarcoAllocation;
             let USDCCost;
 
             // Purchaser 1
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
+            await FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address);
 
             // Purchaser 2
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder2._address);
-            await USDCTokenContract.connect(USDCTokenHolder2).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder2).execute_purchase(USDCTokenHolder2._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder2._address);
+            await USDCTokenContract.connect(USDCTokenHolder2).approve(FundingExecutorDeployed.address, USDCCost);
+            await FundingExecutorDeployed.connect(USDCTokenHolder2).executePurchase(USDCTokenHolder2._address);
 
             // Purchaser 3
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder3._address);
-            await USDCTokenContract.connect(USDCTokenHolder3).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder3).execute_purchase(USDCTokenHolder3._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder3._address);
+            await USDCTokenContract.connect(USDCTokenHolder3).approve(FundingExecutorDeployed.address, USDCCost);
+            await FundingExecutorDeployed.connect(USDCTokenHolder3).executePurchase(USDCTokenHolder3._address);
 
             // Increase Time to past offer expired
             await network.provider.send("evm_increaseTime", [1000]);
             await network.provider.send("evm_mine");
 
             // Recover Unused Funds
-            await expect(PurchaseExecutorDeployed.recover_unsold_tokens())
-                .to.be.revertedWith("PurchaseExecutor: There are no Sarco tokens to recover");
+            await expect(FundingExecutorDeployed.recoverUnsoldTokens())
+                .to.be.revertedWith("FundingExecutor: There are no Sarco tokens to recover");
         });
 
         it("Should Deploy - Start - Execute (3)Purchase - Verify GeneralVesting/Purchase Executor state", async function () {
             // Deployed
-            PurchaseExecutorDeployed = await PurchaseExecutor.deploy(
-                ethers.utils.parseUnits("1.0", 18), // usdc_to_sarco_rate
+            FundingExecutorDeployed = await FundingExecutor.deploy(
+                [ethers.utils.parseUnits("1.0", 18), ethers.utils.parseUnits("1.5", 18)], // usdc_to_sarco_rate
                 100, // vesting duration
                 1000,// offer expiration delay
                 [USDCTokenHolder1._address, USDCTokenHolder2._address, USDCTokenHolder3._address],
                 [ethers.utils.parseUnits("110.0", 18), ethers.utils.parseUnits("120.0", 18), ethers.utils.parseUnits("130.0", 18)],
+                [0, 1, 0],
                 ethers.utils.parseUnits("360.0", 18),
                 USDCToken,
                 SarcoToken,
@@ -944,38 +968,39 @@ describe("FundingExecutor Contract", function () {
                 SarcoDao
             );
 
+
             // Offer Started
-            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(PurchaseExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
-            await expect(PurchaseExecutorDeployed.start())
-                .to.emit(PurchaseExecutorDeployed, "OfferStarted");
+            await SarcoTokenContract.connect(SarcoTokenHolder).transfer(FundingExecutorDeployed.address, ethers.utils.parseUnits("360.0", 18));
+            await expect(FundingExecutorDeployed.start())
+                .to.emit(FundingExecutorDeployed, "OfferStarted");
 
             // Return USDCCost to purchase Sarco
             let SarcoAllocation;
             let USDCCost;
 
             // Purchaser 1
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.connect(USDCTokenHolder1).get_allocation(USDCTokenHolder1._address);
-            await USDCTokenContract.connect(USDCTokenHolder1).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder1).execute_purchase(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.connect(USDCTokenHolder1).getAllocation(USDCTokenHolder1._address);
+            await USDCTokenContract.connect(USDCTokenHolder1).approve(FundingExecutorDeployed.address, USDCCost);
+            await FundingExecutorDeployed.connect(USDCTokenHolder1).executePurchase(USDCTokenHolder1._address);
 
             // Purchaser 2
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.connect(USDCTokenHolder2).get_allocation(USDCTokenHolder2._address);
-            await USDCTokenContract.connect(USDCTokenHolder2).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder2).execute_purchase(USDCTokenHolder2._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.connect(USDCTokenHolder2).getAllocation(USDCTokenHolder2._address);
+            await USDCTokenContract.connect(USDCTokenHolder2).approve(FundingExecutorDeployed.address, USDCCost);
+            await FundingExecutorDeployed.connect(USDCTokenHolder2).executePurchase(USDCTokenHolder2._address);
 
             // Purchaser 3
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.connect(USDCTokenHolder3).get_allocation(USDCTokenHolder3._address);
-            await USDCTokenContract.connect(USDCTokenHolder3).approve(PurchaseExecutorDeployed.address, USDCCost);
-            await PurchaseExecutorDeployed.connect(USDCTokenHolder3).execute_purchase(USDCTokenHolder3._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.connect(USDCTokenHolder3).getAllocation(USDCTokenHolder3._address);
+            await USDCTokenContract.connect(USDCTokenHolder3).approve(FundingExecutorDeployed.address, USDCCost);
+            await FundingExecutorDeployed.connect(USDCTokenHolder3).executePurchase(USDCTokenHolder3._address);
 
             // Purchase Executor: Allocations Should be 0
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder1._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder1._address);
             expect(SarcoAllocation).to.equal(0);
 
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder2._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder2._address);
             expect(SarcoAllocation).to.equal(0);
 
-            [SarcoAllocation, USDCCost] = await PurchaseExecutorDeployed.get_allocation(USDCTokenHolder3._address);
+            [SarcoAllocation, USDCCost] = await FundingExecutorDeployed.getAllocation(USDCTokenHolder3._address);
             expect(SarcoAllocation).to.equal(0);
 
             // GeneralTokenVesting: Durations/TotalTokens > 0

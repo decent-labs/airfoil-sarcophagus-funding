@@ -15,15 +15,15 @@ import "./interfaces/Finance.sol";
 contract FundingExecutor is Ownable {
     using SafeERC20 for IERC20;
 
-    uint256 constant USDC_TO_SARCO_PRECISION = 10**18;
-    uint256 constant SARCO_TO_USDC_DECIMAL_FIX = 10**(18 - 6);
-    uint256 immutable public sarcoAllocationsTotal;
-    uint256 immutable public offerExpirationDelay;
-    uint256 immutable public vestingEndDelay;  
-    IERC20 immutable usdcToken;
-    IERC20 immutable sarcoToken;
-    address immutable generalTokenVesting;
-    address immutable sarcoDao;
+    uint256 private constant USDC_TO_SARCO_PRECISION = 10**18;
+    uint256 private constant SARCO_TO_USDC_DECIMAL_FIX = 10**(18 - 6);
+    uint256 public immutable sarcoAllocationsTotal;
+    uint256 public immutable offerExpirationDelay;
+    uint256 public immutable vestingEndDelay;
+    IERC20 private immutable usdcToken;
+    IERC20 private immutable sarcoToken;
+    GeneralTokenVesting private immutable generalTokenVesting;
+    Finance private immutable sarcoDao;
 
     uint256 public offerStartedAt;
     uint256 public offerExpiresAt;
@@ -31,9 +31,10 @@ contract FundingExecutor is Ownable {
     uint256[] public usdcToSarcoRates;
     struct FunderInfo {
         uint256 sarcoAllocation;
-        uint256 usdcToSarcoRateGroup; 
+        uint256 usdcToSarcoRateIndex;
     }
-    mapping(address => FunderInfo) public Funder;
+
+    mapping(address => FunderInfo) public funders;
 
     // The purchase has been executed exchanging USDC to vested SARCO
     event FundingExecuted(
@@ -66,7 +67,7 @@ contract FundingExecutor is Ownable {
      * @param _offerExpirationDelay Delay from the contract deployment to offer expiration, in seconds
      * @param _sarcoFunders  List of valid SARCO investor
      * @param _sarcoAllocations List of SARCO token allocations, should include decimals 10 ** 18
-     * @param _sarcoRateGroup group which Sarco investor belongs to
+     * @param _sarcoRateIndex group which Sarco investor belongs to
      * @param _sarcoAllocationsTotal Checksum of SARCO token allocations, should include decimals 10 ** 18
      * @param _usdcToken USDC token address
      * @param _sarcoToken Sarco token address
@@ -79,7 +80,7 @@ contract FundingExecutor is Ownable {
         uint256 _offerExpirationDelay,
         address[] memory _sarcoFunders,
         uint256[] memory _sarcoAllocations,
-        uint256[] memory _sarcoRateGroup,
+        uint256[] memory _sarcoRateIndex,
         uint256 _sarcoAllocationsTotal,
         address _usdcToken,
         address _sarcoToken,
@@ -99,7 +100,8 @@ contract FundingExecutor is Ownable {
             "FundingExecutor: offerExpiration must be greater than 0"
         );
         require(
-            _sarcoFunders.length == _sarcoAllocations.length && _sarcoAllocations.length == _sarcoRateGroup.length,
+            _sarcoFunders.length == _sarcoAllocations.length &&
+                _sarcoAllocations.length == _sarcoRateIndex.length,
             "FundingExecutor: purchasers, allocations, traunches lengths must be equal"
         );
         require(
@@ -126,61 +128,58 @@ contract FundingExecutor is Ownable {
         sarcoAllocationsTotal = _sarcoAllocationsTotal;
         usdcToken = IERC20(_usdcToken);
         sarcoToken = IERC20(_sarcoToken);
-        generalTokenVesting  = _generalTokenVesting;
-        sarcoDao = _sarcoDao;
-        {
-            uint256 allocationsSum = 0;
-            for (uint256 i = 0; i < _sarcoFunders.length; i++) {
-                // address funder = _sarcoFunders[i];
-                // uint256 allocation = _sarcoAllocations[i];
-                // uint256 group = _sarcoRateGroup[i];
-                // uint256 rate = _usdcToSarcoRates[group];
-                require(
-                    _sarcoFunders[i] != address(0),
-                    "FundingExecutor: Funder cannot be the ZERO address"
-                );
-                require(
-                    Funder[_sarcoFunders[i]].sarcoAllocation == 0,
-                    "FundingExecutor: Allocation has already been set"
-                );
-                require(
-                    _sarcoAllocations[i] > 0,
-                    "FundingExecutor: No allocated Sarco tokens for address"
-                );
-                require(
-                    _usdcToSarcoRates[_sarcoRateGroup[i]] > 0,
-                    "FundingExecutor: _usdcToSarcoRates must be greater than 0"
-                );
-                Funder[_sarcoFunders[i]] = FunderInfo(_sarcoAllocations[i], _sarcoRateGroup[i]);
-                allocationsSum += _sarcoAllocations[i];
-            }
+        generalTokenVesting = GeneralTokenVesting(_generalTokenVesting);
+        sarcoDao = Finance(_sarcoDao);
+        uint256 allocationsSum = 0;
+        for (uint256 i = 0; i < _sarcoFunders.length; i++) {
             require(
-                allocationsSum == _sarcoAllocationsTotal,
-                "FundingExecutor: AllocationsTotal does not equal the sum of passed allocations"
+                _sarcoFunders[i] != address(0),
+                "FundingExecutor: Funder cannot be the ZERO address"
             );
+            require(
+                funders[_sarcoFunders[i]].sarcoAllocation == 0,
+                "FundingExecutor: Allocation has already been set"
+            );
+            require(
+                _sarcoAllocations[i] > 0,
+                "FundingExecutor: No allocated Sarco tokens for address"
+            );
+            require(
+                _usdcToSarcoRates[_sarcoRateIndex[i]] > 0,
+                "FundingExecutor: _usdcToSarcoRates must be greater than 0"
+            );
+            funders[_sarcoFunders[i]] = FunderInfo(
+                _sarcoAllocations[i],
+                _sarcoRateIndex[i]
+            );
+            allocationsSum += _sarcoAllocations[i];
         }
-
-        // Approve SarcoDao - PurchaseExecutor's total USDC tokens (Execute Purchase)
-        IERC20(_usdcToken).approve(
-            _sarcoDao,
-            type(uint256).max
+        require(
+            allocationsSum == _sarcoAllocationsTotal,
+            "FundingExecutor: AllocationsTotal does not equal the sum of passed allocations"
         );
 
+        // Approve SarcoDao - PurchaseExecutor's total USDC tokens (Execute Purchase)
+        IERC20(_usdcToken).approve(_sarcoDao, type(uint256).max);
+
         // Approve full SARCO amount to GeneralTokenVesting contract
-        IERC20(_sarcoToken).approve(_generalTokenVesting, _sarcoAllocationsTotal);
+        IERC20(_sarcoToken).approve(
+            _generalTokenVesting,
+            _sarcoAllocationsTotal
+        );
 
         // Approve SarcoDao - Funding Executor's total SARCO tokens (Recover Tokens)
         IERC20(_sarcoToken).approve(_sarcoDao, _sarcoAllocationsTotal);
     }
 
-    function _getUsdcCost(uint256 sarcoAmount, uint256 group)
+    function _getUsdcCost(uint256 sarcoAmount, uint256 index)
         internal
         view
         returns (uint256)
     {
         return
-            ((sarcoAmount * USDC_TO_SARCO_PRECISION) / usdcToSarcoRates[group]) /
-            SARCO_TO_USDC_DECIMAL_FIX;
+            ((sarcoAmount * USDC_TO_SARCO_PRECISION) /
+                usdcToSarcoRates[index]) / SARCO_TO_USDC_DECIMAL_FIX;
     }
 
     function offerStarted() public view returns (bool) {
@@ -189,14 +188,6 @@ contract FundingExecutor is Ownable {
 
     function offerExpired() public view returns (bool) {
         return block.timestamp >= offerExpiresAt;
-    }
-
-    function totalGroups() public view returns (uint) {
-        uint total = 0;
-        for(uint i = 0; i < usdcToSarcoRates.length; i++){
-            total ++;
-        }
-        return total;
     }
 
     /**
@@ -233,9 +224,12 @@ contract FundingExecutor is Ownable {
         view
         returns (uint256, uint256)
     {
-        FunderInfo memory funder = Funder[sarcoReceiver];
-        uint256 usdcCost = _getUsdcCost(funder.sarcoAllocation, funder.usdcToSarcoRateGroup);
-        return (funder.sarcoAllocation, usdcCost);
+        FunderInfo memory _funder = funders[sarcoReceiver];
+        uint256 usdcCost = _getUsdcCost(
+            _funder.sarcoAllocation,
+            _funder.usdcToSarcoRateIndex
+        );
+        return (_funder.sarcoAllocation, usdcCost);
     }
 
     /**
@@ -263,7 +257,7 @@ contract FundingExecutor is Ownable {
         );
 
         // Clear sender's allocation
-        Funder[msg.sender].sarcoAllocation = 0;
+        funders[msg.sender].sarcoAllocation = 0;
 
         // transfer sender's USDC to this contract
         usdcToken.safeTransferFrom(msg.sender, address(this), usdcCost);
@@ -282,11 +276,7 @@ contract FundingExecutor is Ownable {
         );
 
         // Forward USDC cost of the purchase to the DAO contract via the Finance Deposit method
-        Finance(sarcoDao).deposit(
-            address(usdcToken),
-            usdcCost,
-            _executedPurchaseString
-        );
+        sarcoDao.deposit(address(usdcToken), usdcCost, _executedPurchaseString);
 
         // Call GeneralTokenVesting startVest method
         GeneralTokenVesting(generalTokenVesting).startVest(
@@ -323,16 +313,16 @@ contract FundingExecutor is Ownable {
         string memory _recoverTokensString = "Recovered unsold SARCO tokens";
 
         // Forward recoverable SARCO tokens to the DAO contract via the Finance Deposit method
-        Finance(sarcoDao).deposit(
+        sarcoDao.deposit(
             address(sarcoToken),
             unsoldSarcoAmount,
             _recoverTokensString
         );
 
         // zero out token approvals that this contract has given in its constructor
-        usdcToken.approve(sarcoDao, 0);
-        sarcoToken.approve(generalTokenVesting, 0);
-        sarcoToken.approve(sarcoDao, 0);
+        usdcToken.approve(address(sarcoDao), 0);
+        sarcoToken.approve(address(generalTokenVesting), 0);
+        sarcoToken.approve(address(sarcoDao), 0);
 
         emit TokensRecovered(unsoldSarcoAmount);
     }
@@ -343,7 +333,11 @@ contract FundingExecutor is Ownable {
      * @param tokenAmount Number of tokens to be sent
      * @param recipientAddress The address to send tokens to
      */
-    function recoverErc20(address tokenAddress, uint256 tokenAmount, address recipientAddress) public onlyOwner {
+    function recoverErc20(
+        address tokenAddress,
+        uint256 tokenAmount,
+        address recipientAddress
+    ) public onlyOwner {
         IERC20(tokenAddress).safeTransfer(recipientAddress, tokenAmount);
     }
 }
