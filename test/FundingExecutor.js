@@ -192,7 +192,7 @@ describe("FundingExecutor Contract", function () {
                 SarcoToken,
                 GeneralTokenVesting,
                 SarcoDao
-            )).to.be.revertedWith("FundingExecutor: purchasers, allocations, traunches lengths must be equal");
+            )).to.be.revertedWith("FundingExecutor: purchasers, allocations, indexes lengths must be equal");
         });
 
         it("Should revert if the length of allocations array does not equal purchasers", async function () {
@@ -208,7 +208,7 @@ describe("FundingExecutor Contract", function () {
                 SarcoToken,
                 GeneralTokenVesting,
                 SarcoDao
-            )).to.be.revertedWith("FundingExecutor: purchasers, allocations, traunches lengths must be equal");
+            )).to.be.revertedWith("FundingExecutor: purchasers, allocations, indexes lengths must be equal");
         });
 
         it("Should revert if the length of traunch array does not equal purchasers", async function () {
@@ -224,7 +224,7 @@ describe("FundingExecutor Contract", function () {
                 SarcoToken,
                 GeneralTokenVesting,
                 SarcoDao
-            )).to.be.revertedWith("FundingExecutor: purchasers, allocations, traunches lengths must be equal");
+            )).to.be.revertedWith("FundingExecutor: purchasers, allocations, indexes lengths must be equal");
         });
 
         it("Should revert if the USDCToken address is address(0)", async function () {

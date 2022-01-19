@@ -102,7 +102,7 @@ contract FundingExecutor is Ownable {
         require(
             _sarcoFunders.length == _sarcoAllocations.length &&
                 _sarcoAllocations.length == _sarcoRateIndex.length,
-            "FundingExecutor: purchasers, allocations, traunches lengths must be equal"
+            "FundingExecutor: purchasers, allocations, indexes lengths must be equal"
         );
         require(
             _usdcToken != address(0),
