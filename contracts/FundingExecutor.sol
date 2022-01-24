@@ -20,10 +20,10 @@ contract FundingExecutor is Ownable {
     uint256 public immutable sarcoAllocationsTotal;
     uint256 public immutable offerExpirationDelay;
     uint256 public immutable vestingEndDelay;
-    IERC20 private immutable usdcToken;
-    IERC20 private immutable sarcoToken;
-    GeneralTokenVesting private immutable generalTokenVesting;
-    Finance private immutable sarcoDao;
+    IERC20 public immutable usdcToken;
+    IERC20 public immutable sarcoToken;
+    GeneralTokenVesting public immutable generalTokenVesting;
+    Finance public immutable sarcoDao;
 
     uint256 public offerStartedAt;
     uint256 public offerExpiresAt;
